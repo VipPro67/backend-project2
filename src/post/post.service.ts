@@ -13,7 +13,7 @@ import { FilterPostDto } from './dto/filter-post.dto';
 import { Media } from 'src/media/entities/media.entity';
 import { Tag } from 'src/tag/entities/tag.entity';
 import { UpdatePostDto } from './dto/update-post.dto';
-import * as AWS from 'aws-sdk';
+import { v2 as cloudinary } from 'cloudinary';
 import { Group } from 'src/group/entities/group.entity';
 import { Relationship } from 'src/relationship/entities/relationship.entity';
 
@@ -32,17 +32,29 @@ export class PostService {
     private groupRepository: Repository<Group>,
     @InjectRepository(Relationship)
     private relationshipRepository: Repository<Relationship>,
-  ) {}
-  keyID: string = process.env.AWS_ACCESS_KEY_ID;
-  keySecret: string = process.env.AWS_SECRET_ACCESS_KEY;
-  region: string = process.env.AWS_REGION;
-  bucketName: string = process.env.AWS_S3_BUCKET_NAME;
+  ) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+    
+  }
+  private async uploadToCloudinary(file: Express.Multer.File): Promise<any> {
+    console.log('Uploading to cloudinary...');
+    console.log("Config", cloudinary.config());
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { folder: 'posts' },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        },
+      );
 
-  s3 = new AWS.S3({
-    accessKeyId: this.keyID,
-    secretAccessKey: this.keySecret,
-  });
-
+      uploadStream.end(file.buffer);
+    });
+  }
   async create(
     userId: string,
     createPostDto: CreatePostDto,
@@ -71,16 +83,9 @@ export class PostService {
         media.post = savedPost;
         await this.mediaRepository.save(media);
         savedPost.media = media;
-        const params = {
-          Bucket: this.bucketName,
-          Key: `post/${Date.now()}_${file.originalname}`,
-          Body: file.buffer,
-          ContentType: file.mimetype,
-          ACL: 'public-read',
-        };
         try {
-          const result = await this.s3.upload(params).promise();
-          media.link = result.Location;
+          const result = await this.uploadToCloudinary(file);
+          media.link = result.secure_url;
           post.media = await this.mediaRepository.save(media);
         } catch (error) {
           throw new BadRequestException('Failed to upload media: ' + error);
@@ -175,18 +180,12 @@ export class PostService {
       } else if (type == 'video') {
         media.type = MediaType.VIDEO;
       }
-      const params = {
-        Bucket: this.bucketName,
-        Key: `post/${Date.now()}_${file.originalname}`,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        ACL: 'public-read',
-      };
       try {
-        const result = await this.s3.upload(params).promise();
-        media.link = result.Location;
+        const result = await this.uploadToCloudinary(file);
+        media.link = result.secure_url;
+        post.media = await this.mediaRepository.save(media);
       } catch (error) {
-        throw new BadRequestException('Failed to upload avatar' + error);
+        throw new BadRequestException('Failed to upload media: ' + error);
       }
       media.post = post;
       await this.mediaRepository.delete({ post: post });

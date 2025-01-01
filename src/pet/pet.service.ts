@@ -5,7 +5,7 @@ import { Like, Not, Repository } from 'typeorm';
 import { Pet } from './entities/pet.entity';
 import { CreatePetDto } from './dto/create-pet.dto';
 import { UpdatePetDto } from './dto/update-pet.dto';
-import * as AWS from 'aws-sdk';
+import {v2 as cloudinary } from 'cloudinary';
 import { FilterPetDto } from './dto/filter-pet.dto';
 
 @Injectable()
@@ -16,16 +16,29 @@ export class PetService {
 
     @InjectRepository(Pet)
     private readonly petRepository: Repository<Pet>,
-  ) {}
-  keyID: string = process.env.AWS_ACCESS_KEY_ID;
-  keySecret: string = process.env.AWS_SECRET_ACCESS_KEY;
-  region: string = process.env.AWS_REGION;
-  bucketName: string = process.env.AWS_S3_BUCKET_NAME;
+  ) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+    
+  }
+  private async uploadToCloudinary(file: Express.Multer.File): Promise<any> {
+    console.log('Uploading to cloudinary...');
+    console.log("Config", cloudinary.config());
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { folder: 'pets' },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        },
+      );
 
-  s3 = new AWS.S3({
-    accessKeyId: this.keyID,
-    secretAccessKey: this.keySecret,
-  });
+      uploadStream.end(file.buffer);
+    });
+  }
   async findAll(filterquery: FilterPetDto) {
     const page = filterquery.page || 1;
     const items_per_page = filterquery.items_per_page || 10;
@@ -131,19 +144,11 @@ export class PetService {
     pet.sex = createPetDto.sex;
     pet.description = createPetDto.description;
     if (file) {
-      const params = {
-        Bucket: this.bucketName,
-        Key: `pet-avatar/${Date.now()}_${file.originalname}`,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        ACL: 'public-read',
-      };
-
       try {
-        const result = await this.s3.upload(params).promise();
-        pet.avatar = result.Location;
+        const result = await this.uploadToCloudinary(file);
+        pet.avatar = result.secure_url;
       } catch (error) {
-        throw new BadRequestException('Failed to upload avatar' + error);
+        throw new BadRequestException('Failed to upload media: ' + error);
       }
     }
 
@@ -187,19 +192,11 @@ export class PetService {
     pet.sex = createPetDto.sex;
     pet.description = createPetDto.description;
     if (file) {
-      const params = {
-        Bucket: this.bucketName,
-        Key: `pet-avatar/${Date.now()}_${file.originalname}`,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        ACL: 'public-read',
-      };
-
       try {
-        const result = await this.s3.upload(params).promise();
-        pet.avatar = result.Location;
+        const result = await this.uploadToCloudinary(file);
+        pet.avatar = result.secure_url;
       } catch (error) {
-        throw new BadRequestException('Failed to upload avatar' + error);
+        throw new BadRequestException('Failed to upload media: ' + error);
       }
     }
     await this.petRepository.save(pet);

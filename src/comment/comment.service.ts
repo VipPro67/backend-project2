@@ -11,8 +11,8 @@ import { FilterCommentDto } from './dto/filter-comment.dto';
 import { Media } from 'src/media/entities/media.entity';
 import { Post } from 'src/post/entities/post.entity';
 import { User } from 'src/user/entities/user.entity';
+import {v2 as cloudinary } from 'cloudinary';
 import { CreateCommnetDto } from './dto/create-comment.dto';
-import * as AWS from 'aws-sdk';
 
 @Injectable()
 export class CommentService {
@@ -25,16 +25,29 @@ export class CommentService {
     private userRepository: Repository<User>,
     @InjectRepository(Media)
     private mediaRepository: Repository<Media>,
-  ) {}
-  keyID: string = process.env.AWS_ACCESS_KEY_ID;
-  keySecret: string = process.env.AWS_SECRET_ACCESS_KEY;
-  region: string = process.env.AWS_REGION;
-  bucketName: string = process.env.AWS_S3_BUCKET_NAME;
-
-  s3 = new AWS.S3({
-    accessKeyId: this.keyID,
-    secretAccessKey: this.keySecret,
-  });
+  ) {
+      cloudinary.config({
+        cloud_name: process.env.CLOUDINARY_NAME,
+        api_key: process.env.CLOUDINARY_API_KEY,
+        api_secret: process.env.CLOUDINARY_API_SECRET,
+      });
+      
+    }
+    private async uploadToCloudinary(file: Express.Multer.File): Promise<any> {
+      console.log('Uploading to cloudinary...');
+      console.log("Config", cloudinary.config());
+      return new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream(
+          { folder: 'comments' },
+          (error, result) => {
+            if (error) return reject(error);
+            resolve(result);
+          },
+        );
+  
+        uploadStream.end(file.buffer);
+      });
+    }
 
   async findAll(filterquery: FilterCommentDto) {
     const page = filterquery.page || 1;
@@ -227,18 +240,12 @@ export class CommentService {
       } else if (type == 'video') {
         media.type = MediaType.VIDEO;
       }
-      const params = {
-        Bucket: this.bucketName,
-        Key: `comment/${Date.now()}_${file.originalname}`,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        ACL: 'public-read',
-      };
       try {
-        const result = await this.s3.upload(params).promise();
-        media.link = result.Location;
+        const result = await this.uploadToCloudinary(file);
+        media.link = result.secure_url;
+        post.media = await this.mediaRepository.save(media);
       } catch (error) {
-        throw new BadRequestException('Failed to upload media comment' + error);
+        throw new BadRequestException('Failed to upload media: ' + error);
       }
       media.comment = savedComment;
       const savedMedia = await this.mediaRepository.save(media);
@@ -309,18 +316,12 @@ export class CommentService {
       } else if (type == 'video') {
         media.type = MediaType.VIDEO;
       }
-      const params = {
-        Bucket: this.bucketName,
-        Key: `comment/${Date.now()}_${file.originalname}`,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        ACL: 'public-read',
-      };
       try {
-        const result = await this.s3.upload(params).promise();
-        media.link = result.Location;
+        const result = await this.uploadToCloudinary(file);
+        media.link = result.secure_url;
+        comment.media = await this.mediaRepository.save(media);
       } catch (error) {
-        throw new BadRequestException('Failed to upload media comment' + error);
+        throw new BadRequestException('Failed to upload media: ' + error);
       }
       media.comment = comment;
       await this.mediaRepository.delete({ comment: comment });

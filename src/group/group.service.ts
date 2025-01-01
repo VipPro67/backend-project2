@@ -11,7 +11,7 @@ import { Message } from 'src/message/entities/message.entity';
 import { User } from 'src/user/entities/user.entity';
 import { DeepPartial, Like, Repository } from 'typeorm';
 import { Group } from './entities/group.entity';
-import * as AWS from 'aws-sdk';
+import { v2 as cloudinary } from 'cloudinary';
 import { FilterGroupDto } from './dto/filter-group.dto';
 
 @Injectable()
@@ -23,16 +23,28 @@ export class GroupService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Group)
     private readonly groupRepository: Repository<Group>,
-  ) {}
-  keyID: string = process.env.AWS_ACCESS_KEY_ID;
-  keySecret: string = process.env.AWS_SECRET_ACCESS_KEY;
-  region: string = process.env.AWS_REGION;
-  bucketName: string = process.env.AWS_S3_BUCKET_NAME;
+  ) {
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
+  }
+  private async uploadToCloudinary(file: Express.Multer.File): Promise<any> {
+    console.log('Uploading to cloudinary...');
+    console.log('Config', cloudinary.config());
+    return new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream(
+        { folder: 'groups' },
+        (error, result) => {
+          if (error) return reject(error);
+          resolve(result);
+        },
+      );
 
-  s3 = new AWS.S3({
-    accessKeyId: this.keyID,
-    secretAccessKey: this.keySecret,
-  });
+      uploadStream.end(file.buffer);
+    });
+  }
   async findAll(filterquery: FilterGroupDto) {
     const page = filterquery.page || 1;
     const items_per_page = filterquery.items_per_page || 10;
@@ -112,22 +124,14 @@ export class GroupService {
       users: [user],
     });
     if (file) {
-      const params = {
-        Bucket: this.bucketName,
-        Key: `group-avatar/${Date.now()}_${file.originalname}`,
-        Body: file.buffer,
-        ContentType: file.mimetype,
-        ACL: 'public-read',
-      };
       try {
-        const result = await this.s3.upload(params).promise();
-        group.avatar = result.Location;
-        await this.userRepository.save(group.users);
-
-        await this.groupRepository.save(group);
+        const result = await this.uploadToCloudinary(file);
+        group.avatar = result.secure_url;
       } catch (error) {
         throw new BadRequestException('Failed to upload avatar' + error);
       }
+      await this.userRepository.save(group.users);
+      await this.groupRepository.save(group);
     }
 
     return this.groupRepository.find({
@@ -160,23 +164,15 @@ export class GroupService {
     if (!group) {
       throw new Error('Group not found or user is not part of the group');
     }
-    const params = {
-      Bucket: this.bucketName,
-      Key: `group-avatar/${Date.now()}_${file.originalname}`,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-      ACL: 'public-read',
-    };
-
     try {
-      const result = await this.s3.upload(params).promise();
-      group.avatar = result.Location;
-      await this.userRepository.save(group.users);
-
-      await this.groupRepository.save(group);
+      var result = await this.uploadToCloudinary(file);
+      group.avatar = result.secure_url;
     } catch (error) {
       throw new BadRequestException('Failed to upload avatar' + error);
     }
+    await this.userRepository.save(group.users);
+    await this.groupRepository.save(group);
+
     return this.groupRepository.update(
       { id, users: { id: user_id } },
       {
