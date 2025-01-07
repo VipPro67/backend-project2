@@ -6,7 +6,6 @@ import { CreateMessageDto } from './message/dto/create-message.dto';
 import { User } from './user/entities/user.entity';
 import { Group } from './group/entities/group.entity';
 import { Media } from './media/entities/media.entity';
-import * as AWS from 'aws-sdk';
 
 @Injectable()
 export class AppService {
@@ -16,15 +15,6 @@ export class AppService {
     @InjectRepository(Group) private groupRepository: Repository<Group>,
     @InjectRepository(Media) private mediaRepository: Repository<Media>,
   ) {}
-  keyID: string = process.env.AWS_ACCESS_KEY_ID;
-  keySecret: string = process.env.AWS_SECRET_ACCESS_KEY;
-  region: string = process.env.AWS_REGION;
-  bucketName: string = process.env.AWS_S3_BUCKET_NAME;
-
-  s3 = new AWS.S3({
-    accessKeyId: this.keyID,
-    secretAccessKey: this.keySecret,
-  });
   async saveMessage(
     user_id: string,
     receiver_id: string,
