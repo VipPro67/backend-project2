@@ -31,8 +31,6 @@ export class GroupService {
     });
   }
   private async uploadToCloudinary(file: Express.Multer.File): Promise<any> {
-    console.log('Uploading to cloudinary...');
-    console.log('Config', cloudinary.config());
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         { folder: 'groups' },

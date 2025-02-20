@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Message } from './entities/message.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Repository } from 'typeorm';
+import { In, IsNull, Repository } from 'typeorm';
 import { Media } from 'src/media/entities/media.entity';
 import { User } from 'src/user/entities/user.entity';
 import { Group } from 'src/group/entities/group.entity';
@@ -26,8 +26,6 @@ export class MessageService {
     });
   }
   private async uploadToCloudinary(file: Express.Multer.File): Promise<any> {
-    console.log('Uploading to cloudinary...');
-    console.log('Config', cloudinary.config());
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         { folder: 'messages' },
@@ -233,15 +231,12 @@ export class MessageService {
 
   async getAllUserConversation(id: any): Promise<Message[]> {
     //get user group conversations
-    console.log('id', id);
     const userGroups = await this.groupRepository.find({
       where: { users: { id: id } },
       relations: ['users'],
     });
     const groupConversations = await this.messageRepository.find({
-      where: userGroups.map((group) => ({
-        group: { id: group.id },
-      })),
+      where: { group: { id: In(userGroups.map((group) => group.id)) } },
       order: { created_at: 'DESC' },
       relations: ['sender', 'group', 'receiver'],
       select: {
@@ -254,6 +249,12 @@ export class MessageService {
         group: {
           id: true,
           name: true,
+          avatar: true,
+        },
+        receiver: {
+          id: true,
+          first_name: true,
+          last_name: true,
           avatar: true,
         },
         content: true,
