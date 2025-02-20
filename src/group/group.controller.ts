@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -14,7 +13,6 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { GroupService } from './group.service';
-import { ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { Group } from './entities/group.entity';
 import { CreateGrouptDto } from './dto/create-group.dto';
@@ -22,7 +20,9 @@ import { UpdateGrouptDto } from './dto/update-group.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { extname } from 'path';
 import { FilterGroupDto } from './dto/filter-group.dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiBearerAuth()
 @ApiTags('Group')
 @Controller('api/v1/groups')
 export class GroupController {

@@ -19,8 +19,9 @@ import { AuthGuard } from 'src/auth/auth.guard';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { extname } from 'path';
 import { FilterPetDto } from './dto/filter-pet.dto';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiBearerAuth()
 @ApiTags('Pet')
 @Controller('api/v1/pets')
 export class PetController {

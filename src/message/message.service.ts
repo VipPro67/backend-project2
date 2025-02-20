@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { Message } from './entities/message.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, Not, Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import { Media } from 'src/media/entities/media.entity';
 import { User } from 'src/user/entities/user.entity';
 import { Group } from 'src/group/entities/group.entity';
@@ -233,6 +233,7 @@ export class MessageService {
 
   async getAllUserConversation(id: any): Promise<Message[]> {
     //get user group conversations
+    console.log('id', id);
     const userGroups = await this.groupRepository.find({
       where: { users: { id: id } },
       relations: ['users'],
@@ -302,7 +303,7 @@ export class MessageService {
     const filteredGroupConversations = groupConversations.filter((message) => {
       //if have many messages between two users, get the last one
       const index = groupConversations.findIndex(
-        (item) => item.group.id == message.group.id,
+        (item) => item.group == message.group,
       );
       return groupConversations.indexOf(message) == index;
     });

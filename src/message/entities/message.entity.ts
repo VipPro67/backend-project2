@@ -4,7 +4,6 @@ import {
   PrimaryGeneratedColumn,
   ManyToOne,
   CreateDateColumn,
-  OneToMany,
   JoinColumn,
   OneToOne,
 } from 'typeorm';
@@ -37,7 +36,6 @@ export class Message {
     onDelete: 'SET NULL',
     onUpdate: 'SET NULL',
   })
-  
   @JoinColumn({ name: 'media_id' })
   media: Media;
 

@@ -1,8 +1,7 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Message } from './message/entities/message.entity';
-import { CreateMessageDto } from './message/dto/create-message.dto';
 import { User } from './user/entities/user.entity';
 import { Group } from './group/entities/group.entity';
 import { Media } from './media/entities/media.entity';

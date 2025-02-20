@@ -16,12 +16,13 @@ import { CommentService } from './comment.service';
 import { Comment } from './entities/comment.entity';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { FilterCommentDto } from './dto/filter-comment.dto';
-import { ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { extname } from 'path';
 import { CreateCommnetDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+@ApiBearerAuth()
 @ApiTags('Comment')
 @Controller('api/v1/comments')
 export class CommentController {
